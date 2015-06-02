@@ -1,0 +1,13 @@
+{
+	"name": "haproxy-marathon-welder-bridge",
+	"preferGlobal": true,
+	"description": "Bridge to integrate Marathon, haproxy and Welder",
+	"author": "Agustin Chiappe <agustin.berrini@appsoma.com>",
+	"engine": "node >= 0.4.1",
+	"dependencies": {
+		"request": "*",
+		"sqlite3": "*",
+		"scribe-js": "*",
+		"fs-extra": "*"
+	}
+}
