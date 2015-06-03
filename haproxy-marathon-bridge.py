@@ -1,98 +1,138 @@
+#!/usr/bin/python
 import sys
+import stat
 import os
 import shutil
-import process
+import subprocess
 import sqlite3
 import urllib2
 
-def createDB(db_path):
+script = sys.argv[0].split("/")[-1]
+name = ".".join(script.split(".")[:-1])
+table = "urls"
+database = name
+script_dir = "/usr/local/bin/"+name+"-dir/"
+database_path = script_dir+name
+cronjob_conf_file = "/etc/"+name+"/marathons"
+cronjob_dir = "/etc/cron.d/"
+cronjob = cronjob_dir+name
+script_path = script_dir+script
+conf_file = "haproxy.cfg"
+
+def createDB(db_path=False):
 	if not db_path: db_path = database_path
-	with db as sqlite3.connect(db_path):
+	print "test",db_path
+	with sqlite3.connect(db_path) as db:
 		values = { "url": "varchar(255)", "app": "varchar(255)" }
 		cols = []
 		for k in values:
 			cols.append(" ".join([k,values[k]]));
 	
-		db.execute("CREATE TABLE IF NOT EXISTS "+table+" ("+cols.join(",")+")");
+		db.execute("CREATE TABLE IF NOT EXISTS "+table+" ("+",".join(cols)+")");
+		db.commit()
+
+def addUrl(app,url):
+	with sqlite3.connect(database_path) as db:
+		db.execute("INSERT INTO "+table+"(url,app) VALUES('"+app+"','"+url+"')");
 		db.commit()
 
 def createCronJob():
-	os.makedirs(script_dir)
+	try:
+		os.makedirs(script_dir)
+	except:
+		pass
 	createDB(database_path)
-	os.mkdir(cronjob_dir)
-	with f as open(cronjob,"w"):
+	try:
+		os.mkdir(cronjob_dir)
+	except: 
+		pass
+	with open(cronjob,"w") as f:
 		f.write(cronContent())
 	shutil.copyfile(script,script_path)
 	os.chmod(script_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
 def updateConfig(masters):
-	config = configHeader() + "\n".join(configApps(masters))
-	with f as open("/etc/haproxy/"+conf_file,"r"):
+	config = "\n".join(configHeader() + configApps(masters))
+	with open("/etc/haproxy/"+conf_file,"r") as f:
 		content = f.read()
 
 	if content == config: return
-	with f as open("/etc/haproxy/"+conf_file,"w"):
+	with open("/etc/haproxy/"+conf_file,"w") as f:
 		f.write(config)
-	
-	print subprocess.Popen("/bin/bash -c 'haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy-private.pid -sf $(</var/run/haproxy-private.pid)', shell=True, stdout=subprocess.PIPE")
+
+	pids = False
+	try:
+		with open("/var/run/haproxy-private.pid","r") as f:
+			pids = f.read().replace("\n"," ")
+	# ACB: File may not exist
+	except: pass
+
+	pids_string = (" -sf "+pids) if pids else ""
+
+	print subprocess.Popen("/bin/bash -c 'haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy-private.pid"+pids_string+"'", shell=True, stdout=subprocess.PIPE)
 
 def configApps(masters):
 	masters = masters.split("\n");
 
-	with db as sqlite3.connect(database_path):
+	with sqlite3.connect(database_path) as db:
 		apps = {}
 		for row in db.execute("SELECT * FROM "+table):
-			apps[row["app"]] = row
+			apps[row[0]] = {"app":row[0],"url":row[1]}
 
 	content = []
+	appsWithUrl = []
 	for master in masters:
-		response = urllib2.urlopen("http://"+master+"/v2/tasks")
+		req = urllib2.Request("http://"+master+"/v2/tasks", None, { "Accept": "text/plain" })
+		response = urllib2.urlopen(req)
 		lines = response.read().split("\n")
 		for line in lines:
-			appsWithUrl = []
-			if line.strip() == "": next
+			if line.strip() == "": continue
 			parts = line.split("\t");
 			app_name = parts[0]
 			service_port = parts[1]
 			servers = parts[2:]
 
-			if apps[app_name]:
-				appsWithUrl.append({ url: apps[app_name].url, app_name: app_name, service_port: service_port, servers: servers})
-				next
-							
-			server_config = listenAppFromPort(app_name,service_port,servers)
-			content = content + server_config
-	
-		if appsWithUrl.length: content = content + listenAppFromUrl(appsWithUrl)
+			print app_name
+			if app_name in apps:
+				appsWithUrl.append({ "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers})
+			else:							
+				server_config = listenAppFromPort(app_name,service_port,servers)
+				content = content + server_config
+
+	if len(appsWithUrl) > 0: content = content + listenAppFromUrl(appsWithUrl)
 	return content
 
 def listenAppFromUrl(apps):
-	frontends = [ "frontend http" ]
+	frontends = [ "frontend http",
+			"   bind 0.0.0.0:80",
+			"   mode http"
+			#"   option tcplog"
+	]
 	ifs = []
 	backends = []
 
 	for app in apps:
 		app_name = app["app_name"]
 		frontend = ""
-		if(app.url[0] == "/"): frontend = "acl "+app_name+" path_end -i "+app["url"]
-		else: frontend = "acl "+app_name+" hdr_beg(host) -i "+app["url"]
+		if(app["url"][0] == "/"): frontend = "   acl "+app_name+" path_end -i "+app["url"]
+		else: frontend = "   acl "+app_name+" hdr(host) -i "+app["url"]
 
 		frontends.append(frontend)
 		ifs.append("use_backend srvs_"+app_name+"    if "+app_name)
 		backend = [
 			"backend srvs_"+app_name,
-			"   mode tcp",
-			"   option tcplog",
+			"   mode http",
 			"   balance leastconn",
 		]
 		for s in range(len(app["servers"])):
-			server = app.servers[s]
-			if(server.strip() == "") next
-			backend.push("   server host"+s+" "+server)
+			server = app["servers"][s]
+			if server.strip() == "": continue
+			backend.append("   server host"+str(s)+" "+server)
 		backends = backends + backend
 	
 	apps = frontends + ifs
 	apps = apps + backends
+	print apps
 	return apps
 
 def listenAppFromPort(app_name,service_port,servers):
@@ -106,8 +146,8 @@ def listenAppFromPort(app_name,service_port,servers):
 
 	for i in range(len(servers)):
 		server = servers[i]
-		if server.strip() == "": next
-		server_config.append("  server "+app_name+"-"+i+" "+server+" check")
+		if server.strip() == "": continue
+		server_config.append("  server "+app_name+"-"+str(i)+" "+server+" check")
 
 	return server_config
 
@@ -143,9 +183,9 @@ def configHeader():
 
 if __name__ == "__main__":
 	method = sys.argv[1]
-	args = sys.argv[1:]
+	args = sys.argv[2:]
 
-	if method in methods:
-		globals()[](*args)
+	if method in globals():
+		globals()[method](*args)
 	else:
 		print "Wrong methods"
