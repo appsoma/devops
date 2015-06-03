@@ -13,6 +13,7 @@ table = "urls"
 database = name
 script_dir = "/usr/local/bin/"+name+"-dir/"
 database_path = script_dir+name
+extra_services_conf_file = "/etc/"+name+"/services.json"
 cronjob_conf_file = "/etc/"+name+"/marathons"
 cronjob_dir = "/etc/cron.d/"
 cronjob = cronjob_dir+name
@@ -97,9 +98,13 @@ def configApps(masters):
 				appsWithUrl.append({ "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers})
 			else:							
 				server_config = listenAppFromPort(app_name,service_port,servers)
-				content = content + server_config
+				content += server_config
 
-	if len(appsWithUrl) > 0: content = content + listenAppFromUrl(appsWithUrl)
+	with open(extra_services_conf_file,"r") as f:
+		apps = json.loads(f.read())
+		appsWithUrl += apps
+
+	if len(appsWithUrl) > 0: content += listenAppFromUrl(appsWithUrl)
 	return content
 
 def listenAppFromUrl(apps):

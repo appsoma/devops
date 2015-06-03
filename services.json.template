@@ -1,0 +1,8 @@
+[
+	{
+		"url": "welder_url", 
+		"app_name": "welder", 
+		"service_port": "welder_port", 
+		"servers": [ "welder_server1","welder_server2" ]
+	}
+]
