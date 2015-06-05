@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sqlite3
 import urllib2
+import json
 
 script = sys.argv[0].split("/")[-1]
 name = ".".join(script.split(".")[:-1])
