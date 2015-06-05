@@ -100,18 +100,23 @@ def configApps(masters):
 				server_config = listenAppFromPort(app_name,service_port,servers)
 				content += server_config
 
-	with open(extra_services_conf_file,"r") as f:
-		apps = json.loads(f.read())
-		appsWithUrl += apps
-
+	try:
+		with open(extra_services_conf_file,"r") as f:
+			apps = json.loads(f.read())
+			appsWithUrl += apps
+	#ACB: May not exist
+	except: pass
+	
 	if len(appsWithUrl) > 0: content += listenAppFromUrl(appsWithUrl)
 	return content
 
 def listenAppFromUrl(apps):
-	frontends = [ "frontend http",
-			"   bind 0.0.0.0:80",
-			"   mode http"
-			#"   option tcplog"
+	frontends = [ 
+		"",
+		"frontend http-in",
+		"   bind 0.0.0.0:31111",
+		"   mode http",
+		"   option tcplog"
 	]
 	ifs = []
 	backends = []
@@ -120,14 +125,17 @@ def listenAppFromUrl(apps):
 		app_name = app["app_name"]
 		frontend = ""
 		if(app["url"][0] == "/"): frontend = "   acl "+app_name+" path_end -i "+app["url"]
-		else: frontend = "   acl "+app_name+" hdr(host) -i "+app["url"]
+		else: frontend = "   acl "+app_name+" hdr(host) -i "+app["url"]+":31111"
 
 		frontends.append(frontend)
 		ifs.append("use_backend srvs_"+app_name+"    if "+app_name)
 		backend = [
+			"",
 			"backend srvs_"+app_name,
 			"   mode http",
-			"   balance leastconn",
+			"   option httpclose",
+			"   option forwardfor",
+			"   balance leastconn"
 		]
 		for s in range(len(app["servers"])):
 			server = app["servers"][s]
@@ -176,6 +184,10 @@ def configHeader():
 		"  timeout connect  5000",
 		"  timeout client  50000",
 		"  timeout server  50000",
+		"  option httplog",
+		"  option dontlognull",
+		"  option forwardfor",
+		"  option http-server-close",
 		"",
 		"listen stats",
 		"  bind 127.0.0.1:9090",
