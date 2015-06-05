@@ -115,7 +115,7 @@ def listenAppFromUrl(apps):
 	frontends = [ 
 		"",
 		"frontend http-in",
-		"   bind 0.0.0.0:31111",
+		"   bind 0.0.0.0",
 		"   mode http",
 		"   option tcplog"
 	]
@@ -126,7 +126,7 @@ def listenAppFromUrl(apps):
 		app_name = app["app_name"]
 		frontend = ""
 		if(app["url"][0] == "/"): frontend = "   acl "+app_name+" path_end -i "+app["url"]
-		else: frontend = "   acl "+app_name+" hdr(host) -i "+app["url"]+":31111"
+		else: frontend = "   acl "+app_name+" hdr(host) -i "+app["url"]
 
 		frontends.append(frontend)
 		ifs.append("use_backend srvs_"+app_name+"    if "+app_name)
