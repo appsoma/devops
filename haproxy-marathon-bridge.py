@@ -115,7 +115,7 @@ def listenAppFromUrl(apps):
 	frontends = [ 
 		"",
 		"frontend http-in",
-		"   bind 0.0.0.0",
+		"   bind 0.0.0.0:80",
 		"   mode http",
 		"   option tcplog"
 	]
