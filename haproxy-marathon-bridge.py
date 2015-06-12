@@ -138,8 +138,8 @@ def listenAppFromUrl(apps):
 			"",
 			"backend srvs_"+app_name,
 			"   mode http",
-			"   option httpclose",
-			"   option forwardfor",
+			#"   option httpclose",
+			#"   option forwardfor",
 			"   balance leastconn"
 		]
 		for s in range(len(app["servers"])):
@@ -169,13 +169,13 @@ def listenAppFromPort(app_name,service_port,servers):
 	return server_config
 
 def cronContent():
-	return "* * * * * root python "+script_path+" updateConfig $(cat "+cronjob_conf_file+") >>/tmp/haproxycron.log 2>&1"
+	return "* * * * * root python "+script_path+" updateConfig $(cat "+cronjob_conf_file+") >>/tmp/haproxycron.log 2>&1\n"
 
 def configHeader():
 	header = [
 		"global",
 		"  daemon",
-		"  nbproc 2",
+		#"  nbproc 2",
 		"  pidfile /var/run/haproxy-private.pid",
 		"  log 127.0.0.1 local0",
 		"  log 127.0.0.1 local1 notice",
