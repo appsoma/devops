@@ -14,9 +14,9 @@ Bridge to deal with load balancing and service discovery on marathon using hapro
 <a name='installation'></a>
 ## Installing
 
-```$ wget https://raw.githubusercontent.com/appsoma/devops/master/haproxy-marathon-bridge.py
-$ chmod +x haproxy-marathon-bridge.py
-$ sudo ./haproxy-marathon-bridge.py createCronJob```
+```$ wget https://raw.githubusercontent.com/appsoma/devops/master/haproxy-marathon-bridge.py```
+```$ chmod +x haproxy-marathon-bridge.py```
+```$ sudo ./haproxy-marathon-bridge.py createCronJob```
 
 <a name='usage'></a>
 ## Usage
