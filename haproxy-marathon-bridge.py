@@ -23,7 +23,6 @@ conf_file = "haproxy.cfg"
 
 def createDB(db_path=False):
 	if not db_path: db_path = database_path
-	print "test",db_path
 	with sqlite3.connect(db_path) as db:
 		values = { "url": "varchar(255)", "app": "varchar(255)" }
 		cols = []
@@ -71,7 +70,13 @@ def updateConfig(masters):
 
 	pids_string = (" -sf "+pids) if pids else ""
 
-	print subprocess.Popen("/bin/bash -c 'haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy-private.pid"+pids_string+"'", shell=True, stdout=subprocess.PIPE)
+	print subprocess.Popen("/bin/bash -c '/usr/sbin/haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy-private.pid"+pids_string+"'", shell=True, stdout=subprocess.PIPE)
+
+def listUrls():
+	with sqlite3.connect(database_path) as db:
+		apps = {}
+		for row in db.execute("SELECT * FROM "+table):
+			print row[0],row[1]
 
 def configApps(masters):
 	masters = masters.split("\n");
@@ -94,7 +99,6 @@ def configApps(masters):
 			service_port = parts[1]
 			servers = parts[2:]
 
-			print app_name
 			if app_name in apps:
 				appsWithUrl.append({ "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers})
 			else:							
@@ -115,7 +119,7 @@ def listenAppFromUrl(apps):
 	frontends = [ 
 		"",
 		"frontend http-in",
-		"   bind 0.0.0.0",
+		"   bind 0.0.0.0:80",
 		"   mode http",
 		"   option tcplog"
 	]
@@ -146,7 +150,6 @@ def listenAppFromUrl(apps):
 	
 	apps = frontends + ifs
 	apps = apps + backends
-	print apps
 	return apps
 
 def listenAppFromPort(app_name,service_port,servers):
@@ -166,7 +169,7 @@ def listenAppFromPort(app_name,service_port,servers):
 	return server_config
 
 def cronContent():
-	return "* * * * * root "+script_path+" updateConfig $(cat "+cronjob_conf_file+")"
+	return "* * * * * root python "+script_path+" updateConfig $(cat "+cronjob_conf_file+") >>/tmp/haproxycron.log 2>&1"
 
 def configHeader():
 	header = [
