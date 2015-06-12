@@ -14,17 +14,17 @@ Bridge to deal with load balancing and service discovery on marathon using hapro
 <a name='installation'></a>
 ## Installing
 
-`$ wget https://raw.githubusercontent.com/appsoma/devops/master/haproxy-marathon-bridge.py`
-`$ chmod +x haproxy-marathon-bridge.py`
-`$ sudo ./haproxy-marathon-bridge.py createCronJob`
+```$ wget https://raw.githubusercontent.com/appsoma/devops/master/haproxy-marathon-bridge.py
+$ chmod +x haproxy-marathon-bridge.py
+$ sudo ./haproxy-marathon-bridge.py createCronJob```
 
 <a name='usage'></a>
 ## Usage
 
-`$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py listUrls #Lists the marathon services that are using a DNS name.`
-`$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py createCronJob #Creates the cronjob to update the configuration and restarts haproxy.`
-`$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py addUrl "app" "url" #Adds a new DNS name to a marathon app. `
-`$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py updateConfig $(cat /etc/haproxy/marathon/bridge/marathons) #Forces an updates of the configuration file and restarts haproxy.`
+```$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py listUrls #Lists the marathon services that are using a DNS name.
+$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py createCronJob #Creates the cronjob to update the configuration and restarts haproxy.
+$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py addUrl "app" "url" #Adds a new DNS name to a marathon app.
+$ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py updateConfig $(cat /etc/haproxy/marathon/bridge/marathons) #Forces an updates of the configuration file and restarts haproxy.```
 
 ### Adding services out of marathon
 
