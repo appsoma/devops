@@ -4,7 +4,6 @@ import stat
 import os
 import shutil
 import subprocess
-import sqlite3
 import urllib2
 import json
 
@@ -13,7 +12,6 @@ name = ".".join(script.split(".")[:-1])
 table = "urls"
 database = name
 script_dir = "/usr/local/bin/"+name+"-dir/"
-database_path = script_dir+name
 extra_services_conf_file = "/etc/"+name+"/services.json"
 cronjob_conf_file = "/etc/"+name+"/marathons"
 cronjob_dir = "/etc/cron.d/"
@@ -21,28 +19,13 @@ cronjob = cronjob_dir+name
 script_path = script_dir+script
 conf_file = "haproxy.cfg"
 
-def createDB(db_path=False):
-	if not db_path: db_path = database_path
-	with sqlite3.connect(db_path) as db:
-		values = { "url": "varchar(255)", "app": "varchar(255)" }
-		cols = []
-		for k in values:
-			cols.append(" ".join([k,values[k]]));
-	
-		db.execute("CREATE TABLE IF NOT EXISTS "+table+" ("+",".join(cols)+")");
-		db.commit()
-
-def addUrl(app,url):
-	with sqlite3.connect(database_path) as db:
-		db.execute("INSERT INTO "+table+"(url,app) VALUES('"+app+"','"+url+"')");
-		db.commit()
-
+# Creates the cron job that will run each minute
+# Installs the script
 def createCronJob():
 	try:
 		os.makedirs(script_dir)
 	except:
 		pass
-	createDB(database_path)
 	try:
 		os.mkdir(cronjob_dir)
 	except: 
@@ -52,6 +35,8 @@ def createCronJob():
 	shutil.copyfile(script,script_path)
 	os.chmod(script_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
+# Updates the configuration of haproxy
+# Forces restart
 def updateConfig(masters):
 	config = "\n".join(configHeader() + configApps(masters))
 	with open("/etc/haproxy/"+conf_file,"r") as f:
@@ -72,22 +57,21 @@ def updateConfig(masters):
 
 	print subprocess.Popen("/bin/bash -c '/usr/sbin/haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy-private.pid"+pids_string+"'", shell=True, stdout=subprocess.PIPE)
 
-def listUrls():
-	with sqlite3.connect(database_path) as db:
-		apps = {}
-		for row in db.execute("SELECT * FROM "+table):
-			print row[0],row[1]
-
+# Configurate the available apps using the provided masters url list
 def configApps(masters):
 	masters = masters.split("\n");
 
-	with sqlite3.connect(database_path) as db:
-		apps = {}
-		for row in db.execute("SELECT * FROM "+table):
-			apps[row[0]] = {"app":row[0],"url":row[1]}
+	apps = {}
+	try:
+		with open(extra_services_conf_file,"r") as f:
+			a = json.loads(f.read())
+			for i in a:
+				apps[a["app_name"]] = a
+			
+	#ACB: May not exist
+	except: pass
 
 	content = []
-	appsWithUrl = []
 	for master in masters:
 		req = urllib2.Request("http://"+master+"/v2/tasks", None, { "Accept": "text/plain" })
 		response = urllib2.urlopen(req)
@@ -100,24 +84,20 @@ def configApps(masters):
 			servers = parts[2:]
 
 			if app_name in apps:
-				appsWithUrl.append({ "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers})
+				apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers}
 			else:							
 				server_config = listenAppFromPort(app_name,service_port,servers)
 				content += server_config
-
-	try:
-		with open(extra_services_conf_file,"r") as f:
-			apps = json.loads(f.read())
-			appsWithUrl += apps
-	#ACB: May not exist
-	except: pass
 	
-	if len(appsWithUrl) > 0: content += listenAppFromUrl(appsWithUrl)
+	if len(apps) > 0: content += listenAppFromUrl(apps)
 	return content
 
+# Creates the configuration for the apps received by parameter 
+# Using acl and DNS matching
 def listenAppFromUrl(apps):
 	frontends = [ 
 		"",
+		"# Configuration for all the apps that are accessible using acl and custom DNS names",
 		"frontend http-in",
 		"   bind 0.0.0.0:80",
 		"   mode http",
@@ -127,6 +107,7 @@ def listenAppFromUrl(apps):
 	backends = []
 
 	for app in apps:
+		if "servers" not in app: pass
 		app_name = app["app_name"]
 		frontend = ""
 		if(app["url"][0] == "/"): frontend = "   acl "+app_name+" path_end -i "+app["url"]
@@ -136,6 +117,7 @@ def listenAppFromUrl(apps):
 		ifs.append("use_backend srvs_"+app_name+"    if "+app_name)
 		backend = [
 			"",
+			"# Backend of the app "+app_name,
 			"backend srvs_"+app_name,
 			"   mode http",
 			#"   option httpclose",
@@ -145,15 +127,19 @@ def listenAppFromUrl(apps):
 		for s in range(len(app["servers"])):
 			server = app["servers"][s]
 			if server.strip() == "": continue
-			backend.append("   server host"+str(s)+" "+server)
+			backend.append("   server "+app_name+"-host"+str(s)+" "+server)
 		backends = backends + backend
 	
 	apps = frontends + ifs
 	apps = apps + backends
 	return apps
 
+# Creates configuration for an app using a port to reach
 def listenAppFromPort(app_name,service_port,servers):
 	server_config = [
+		"",
+		"# Configuration for the app "+app_name,
+		"# Using port "+service_port,
 		"listen "+app_name+"-"+service_port,
 		"  bind 0.0.0.0:"+service_port,
 		"  mode tcp",
@@ -168,11 +154,15 @@ def listenAppFromPort(app_name,service_port,servers):
 
 	return server_config
 
+# Returns the content of the cron file
 def cronContent():
 	return "* * * * * root python "+script_path+" updateConfig $(cat "+cronjob_conf_file+") >>/tmp/haproxycron.log 2>&1\n"
 
+# Returns the global part of the app
 def configHeader():
 	header = [
+		"# General section with all the global values. ",
+		"# Added at method configHeader at haproxy-marathon-bridge",
 		"global",
 		"  daemon",
 		#"  nbproc 2",

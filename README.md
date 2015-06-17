@@ -30,6 +30,8 @@ sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py addUr
 sudo /usr/local/bin/haproxy-marathon-bridge-dir/haproxy-marathon-bridge.py updateConfig $(cat /etc/haproxy/marathon/bridge/marathons) #Forces an updates of the configuration file and restarts haproxy.
 ```
 
+From the moment you add a new entry to the configuration, it will take 1 minute max to be on available on haproxy.
+
 ### Adding services out of marathon
 
 If you want to add DNS names to services not runninng on marathon, you should use the file /etc/haproxy-marathon-bridge/services.json. Is a json file with the following structure:
@@ -54,3 +56,4 @@ If an app on marathon wasn't configure to use a DNS, will use a backend on tcp u
 
 master-marathon-url:port-number
 
+haproxy load balances the request using leastconn method.
