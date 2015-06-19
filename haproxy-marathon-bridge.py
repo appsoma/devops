@@ -66,8 +66,7 @@ def configApps(masters):
 		with open(extra_services_conf_file,"r") as f:
 			a = json.loads(f.read())
 			for i in a:
-				apps[a["app_name"]] = a
-			
+				apps[i["app_name"]] = i
 	#ACB: May not exist
 	except: pass
 
@@ -82,13 +81,12 @@ def configApps(masters):
 			app_name = parts[0]
 			service_port = parts[1]
 			servers = parts[2:]
-
+			
 			if app_name in apps:
 				apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers}
 			else:							
 				server_config = listenAppFromPort(app_name,service_port,servers)
 				content += server_config
-	
 	if len(apps) > 0: content += listenAppFromUrl(apps)
 	return content
 
@@ -106,9 +104,8 @@ def listenAppFromUrl(apps):
 	ifs = []
 	backends = []
 
-	for app in apps:
-		if "servers" not in app: pass
-		app_name = app["app_name"]
+	for app_name,app in apps.items():
+		if "servers" not in app: continue
 		frontend = ""
 		if(app["url"][0] == "/"): frontend = "   acl "+app_name+" path_end -i "+app["url"]
 		else: frontend = "   acl "+app_name+" hdr(host) -i "+app["url"]
