@@ -7,7 +7,7 @@ import subprocess
 import urllib2
 import json
 import socket
-import random
+import rndom
 
 class PortManagement:
 	def __init__(self):
@@ -15,7 +15,7 @@ class PortManagement:
 	def check_port(self,port):
 		return port in ports
 	def new_port(self):
-		available_ports = [ i for i in range(1024, 49151) if i not in self.ports and self.available(i) ]
+		available_ports = [ i for i in range(1024, 49151) if i not in self.ports and PortManagement.available(i) ]
 
 		if len(available_ports) == 0: return False
 
