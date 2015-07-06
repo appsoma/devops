@@ -4,6 +4,7 @@ import stat
 import os
 import shutil
 import subprocess
+import urllib
 import urllib2
 import json
 import socket
@@ -29,13 +30,15 @@ class PortManagement:
 
 class Etcd:
 	def __init__(self):
-		self.api_url = "http://127.0.0.1:2379/v2/"
+		self.api_url = "http://127.0.0.1:2379/v2"
 	def get(self,key):
 		return self._request(os.path.join("/keys",key))
 	def set(self,key,data):
-		return self._request(os.path.join("/keys",key),data)
+		return self._request(os.path.join("/keys",key),urllib.urlencode({ "value": data }))
 	def _request(self,url,data=None):
-		req = urllib2.Request(os.path.join(self.api_url,url), data)
+		req = urllib2.Request(self.api_url+url, data)
+		if data:
+			req.get_method = lambda: "PUT"
 		response = urllib2.urlopen(req)
 		return json.load(response)
 
@@ -51,7 +54,7 @@ cronjob_dir = "/etc/cron.d/"
 cronjob = cronjob_dir+name
 script_path = script_dir+script
 conf_file = "haproxy.cfg"
-etcd_handler = Etcd()
+etcd = Etcd()
 port_management = PortManagement()
 
 # Creates the cron job that will run each minute
@@ -73,7 +76,7 @@ def createCronJob():
 # Updates the configuration of haproxy
 # Forces restart
 def updateConfig():
-	masters = etcd.get(cronjob_conf_file)
+	masters = etcd.get(cronjob_conf_file)["node"]["value"]
 	config = "\n".join(configHeader() + configApps(masters))
 	with open("/etc/haproxy/"+conf_file,"r") as f:
 		content = f.read()
@@ -99,7 +102,7 @@ def configApps(masters):
 
 	apps = {}
 	apps_data = etcd.get(extra_services_conf_file)
-	for i in apps_data["node"]["value"]:
+	for i in json.loads(apps_data["node"]["value"]):
 		apps[i["app_name"]] = i
 
 	content = []
@@ -116,7 +119,6 @@ def configApps(masters):
 			
 			if app_name in apps:
 				apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers}
-				backend = apps[app_name]["url"]
 			else:
 				if port_managemente.check_port(service_port):
 					service_port = port_management.new_port()
@@ -127,8 +129,8 @@ def configApps(masters):
 				server_config = listenAppFromPort(app_name,service_port,servers)
 				content += server_config
 				backend = socket.gethostbyname(socket.gethostname())+":"+service_port
+				etcd.set(os.path.join(backends_directory,app_name),backend)
 
-			etcd.set(os.path.join("/backends",app_name),backend)
 	if len(apps) > 0: content += listenAppFromUrl(apps)
 	return content
 
@@ -167,6 +169,7 @@ def listenAppFromUrl(apps):
 			server = app["servers"][s]
 			if server.strip() == "": continue
 			backend.append("   server "+app_name+"-host"+str(s)+" "+server)
+		etcd.set(os.path.join(backends_directory,app_name),app["url"])
 		backends = backends + backend
 	
 	apps = frontends + ifs
