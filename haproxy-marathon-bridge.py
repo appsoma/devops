@@ -7,7 +7,7 @@ import subprocess
 import urllib2
 import json
 import socket
-import rndom
+import random
 
 class PortManagement:
 	def __init__(self):
