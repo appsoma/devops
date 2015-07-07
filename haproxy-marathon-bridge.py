@@ -12,9 +12,9 @@ import random
 
 class PortManagement:
 	def __init__(self):
-		ports = []
+		self.ports = []
 	def check_port(self,port):
-		return port in ports
+		return port in self.ports
 	def new_port(self):
 		available_ports = [ i for i in range(1024, 49151) if i not in self.ports and PortManagement.available(i) ]
 
@@ -120,7 +120,7 @@ def configApps(masters):
 			if app_name in apps:
 				apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers}
 			else:
-				if port_managemente.check_port(service_port):
+				if port_management.check_port(service_port):
 					service_port = port_management.new_port()
 					if not service_port:
 						raise Exception("No open port available")

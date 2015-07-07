@@ -1,19 +1,16 @@
 var ws = require("nodejs-websocket");
+var request = require("request");
 
-var url = "mesos.appsoma.com:31336";
+request("http://127.0.0.1:2379/v2/keys/haproxy-marathon-bridge/backends/echo-server-1",function(error,response,body) {
+body = JSON.parse(body);
+var conn = ws.connect("ws://"+body["node"]["value"]);
 
-function connect() {
-	var c = ws.connect("ws://"+url);
+conn.on("text",function(str) {
+	console.log("> "+str);
+});
 
-	c.on("text",function(str) { console.log("Text received",str); });
-	return c;
-}
-
-var c = connect();
 setInterval(function() {
-	try{
-		c.sendText("hola");
-	} catch(err) {
-		c = connect();
-	}
+	console.log("< hola");
+	conn.sendText("hola");
 },1000);
+});
