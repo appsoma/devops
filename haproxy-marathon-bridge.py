@@ -49,7 +49,8 @@ database = name
 script_dir = "/usr/local/bin/"+name+"-dir/"
 extra_services_conf_file = name+"/services.json"
 cronjob_conf_file = name+"/marathons"
-backends_directory = name+"/backends"
+backends_directory = "internals"
+externals_directory = "externals"
 cronjob_dir = "/etc/cron.d/"
 cronjob = cronjob_dir+name
 script_path = script_dir+script
@@ -129,7 +130,9 @@ def configApps(masters):
 				server_config = listenAppFromPort(app_name,service_port,servers)
 				content += server_config
 				backend = socket.gethostbyname(socket.gethostname())+":"+service_port
+				external = urllib2.urlopen('http://whatismyip.org').read()+":"+service_port
 				etcd.set(os.path.join(backends_directory,app_name),backend)
+				etcd.set(os.path.join(externals_directory,app_name),external)
 
 	if len(apps) > 0: content += listenAppFromUrl(apps)
 	return content
@@ -170,6 +173,7 @@ def listenAppFromUrl(apps):
 			if server.strip() == "": continue
 			backend.append("   server "+app_name+"-host"+str(s)+" "+server)
 		etcd.set(os.path.join(backends_directory,app_name),app["url"])
+		etcd.set(os.path.join(externals_directory,app_name),app["url"])
 		backends = backends + backend
 	
 	apps = frontends + ifs
