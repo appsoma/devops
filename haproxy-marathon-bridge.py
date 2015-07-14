@@ -47,6 +47,10 @@ name = ".".join(script.split(".")[:-1])
 table = "urls"
 database = name
 script_dir = "/usr/local/bin/"+name+"-dir/"
+config_template = name+"/haproxy.cfg"
+config_port_template = name+"/haproxy_port.cfg"
+config_frontends_template = name+"/haproxy_frontends.cfg"
+config_backend_template = name+"/haproxy_backend.cfg"
 extra_services_conf_file = name+"/services.json"
 cronjob_conf_file = name+"/marathons"
 backends_directory = "internals"
@@ -78,7 +82,7 @@ def createCronJob():
 # Forces restart
 def updateConfig():
 	masters = etcd.get(cronjob_conf_file)["node"]["value"]
-	config = "\n".join(configHeader() + configApps(masters))
+	config = "\n".join(configHeader().split("\n") + configApps(masters))
 	with open("/etc/haproxy/"+conf_file,"r") as f:
 		content = f.read()
 
@@ -140,15 +144,10 @@ def configApps(masters):
 # Creates the configuration for the apps received by parameter 
 # Using acl and DNS matching
 def listenAppFromUrl(apps):
-	frontends = [ 
-		"",
-		"# Configuration for all the apps that are accessible using acl and custom DNS names",
-		"frontend http-in",
-		"   bind 0.0.0.0:80",
-		"   mode http",
-		"   option tcplog"
-	]
-	ifs = []
+	frontends = etcd.get(config_frontends_template)["node"]["value"]
+	backend_template = etcd.get(config_backend_template)["node"]["value"]
+	acls = []
+	use_backends = []
 	backends = []
 
 	for app_name,app in apps.items():
@@ -157,41 +156,27 @@ def listenAppFromUrl(apps):
 		if(app["url"][0] == "/"): frontend = "   acl "+app_name+" path_end -i "+app["url"]
 		else: frontend = "   acl "+app_name+" hdr(host) -i "+app["url"]
 
-		frontends.append(frontend)
-		ifs.append("use_backend srvs_"+app_name+"    if "+app_name)
-		backend = [
-			"",
-			"# Backend of the app "+app_name,
-			"backend srvs_"+app_name,
-			"   mode http",
-			#"   option httpclose",
-			#"   option forwardfor",
-			"   balance leastconn"
-		]
+		acls.append(frontend)
+		use_backends.append("use_backend srvs_"+app_name+"    if "+app_name)
+		servers = []
 		for s in range(len(app["servers"])):
 			server = app["servers"][s]
 			if server.strip() == "": continue
-			backend.append("   server "+app_name+"-host"+str(s)+" "+server)
+			servers.append("   server "+app_name+"-host"+str(s)+" "+server)
+		backends += backend_template.replace("$app_name",app_name).replace("$servers","\n".join(servers)).split("\n")
 		etcd.set(os.path.join(backends_directory,app_name),app["url"])
 		etcd.set(os.path.join(externals_directory,app_name),app["url"])
-		backends = backends + backend
 	
-	apps = frontends + ifs
+	apps = frontends.replace("$acls","".join(acls)).replace("$use_backends","".join(use_backends)).split("\n")
 	apps = apps + backends
 	return apps
 
 # Creates configuration for an app using a port to reach
 def listenAppFromPort(app_name,service_port,servers):
-	server_config = [
-		"",
-		"# Configuration for the app "+app_name,
-		"# Using port "+service_port,
-		"listen "+app_name+"-"+service_port,
-		"  bind 0.0.0.0:"+service_port,
-		"  mode tcp",
-		"  option tcplog",
-		"  balance leastconn"
-	]
+	server_config = etcd.get(config_port_template)["node"]["value"]
+				.replace("$app_name",app_name)
+				.replace("$service_port",service_port)
+				.split("\n")
 
 	for i in range(len(servers)):
 		server = servers[i]
@@ -206,37 +191,7 @@ def cronContent():
 
 # Returns the global part of the app
 def configHeader():
-	header = [
-		"# General section with all the global values. ",
-		"# Added at method configHeader at haproxy-marathon-bridge",
-		"global",
-		"  daemon",
-		#"  nbproc 2",
-		"  pidfile /var/run/haproxy-private.pid",
-		"  log 127.0.0.1 local0",
-		"  log 127.0.0.1 local1 notice",
-		"  maxconn 100000",
-		"",
-		"defaults",
-		"  log            global",
-		"  retries             30000",
-		"  maxconn          150000",
-		"  timeout connect  150000",
-		"  timeout client  150000",
-		"  timeout server  150000",
-		"  option httplog",
-		"  option dontlognull",
-		#"  option forwardfor",
-		#"  option http-server-close",
-		"",
-		"listen stats",
-		"  bind 127.0.0.1:9090",
-		"  balance",
-		"  mode http",
-		"  stats enable",
-		"  stats auth admin:admin"
-	]
-	return header
+	return etcd.get(config_template)["node"]["value"]
 
 if __name__ == "__main__":
 	method = sys.argv[1]

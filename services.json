@@ -1,0 +1,46 @@
+[
+	{
+		"url": "welder_demo.appsoma.com",
+		"service_port": "80",
+		"app_name": "welder",
+		"servers": [ "10.10.0.62:8890" ]
+	},
+	{
+		"url": "bluer.io",
+		"service_port": "80",
+		"app_name": "bluer",
+		"servers": [ "10.10.0.62:8898" ]
+	},
+	{
+		"app_name": "/web-page-buyer",
+		"url": "buyer-bidservice.appsoma.com"
+	},
+	{
+		"app_name": "web-page-buyer",
+		"url": "buyer-bidservice.appsoma.com"
+	},
+	{
+		"app_name": "/bid-service-registration",
+		"url": "developer-bidservice.appsoma.com"
+	},
+	{
+		"app_name": "bid-service-registration",
+		"url": "developer-bidservice.appsoma.com"
+	},
+	{
+		"app_name": "bid-feeder-service",
+		"url": "bid-feeder-service.appsoma.com"
+	},
+	{
+		"app_name": "/bid-feeder-service",
+		"url": "bid-feeder-service.appsoma.com"
+	},
+	{
+		"app_name": "bid-service",
+		"url": "bidservice.appsoma.com"
+	},
+	{
+		"app_name": "/bid-service",
+		"url": "bidservice.appsoma.com"
+	}
+]
