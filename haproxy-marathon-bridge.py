@@ -51,7 +51,7 @@ config_template = name+"/haproxy.cfg"
 config_port_template = name+"/haproxy_port.cfg"
 config_frontends_template = name+"/haproxy_frontends.cfg"
 config_backend_template = name+"/haproxy_backend.cfg"
-extra_services_conf_file = name+"/services.json"
+extra_services_directory = name+"/services"
 cronjob_conf_file = name+"/marathons"
 backends_directory = "internals"
 externals_directory = "externals"
@@ -106,9 +106,10 @@ def configApps(masters):
 	masters = masters.split("\n");
 
 	apps = {}
-	apps_data = etcd.get(extra_services_conf_file)
-	for i in json.loads(apps_data["node"]["value"]):
-		apps[i["app_name"]] = i
+	apps_data = etcd.get(extra_services_directory)
+	for i in apps_data["node"]["nodes"]:
+		s = json.loads(i["value"])
+		apps[s["app_name"]] = s
 
 	content = []
 	for master in masters:
