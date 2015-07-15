@@ -113,7 +113,7 @@ def configApps(masters):
 
 	content = []
 	for master in masters:
-		req = urllib2.Request("http://"+master+"/v2/apps")
+		req = urllib2.Request("http://"+master+"/v2/apps?embed=apps.tasks")
 		response = urllib2.urlopen(req)
 		marathon_apps = json.loads(response.read())["apps"]
 		for app in marathon_apps:
@@ -123,9 +123,9 @@ def configApps(masters):
 			if "HAPROXY_HTTP" in app["env"]:
 				http_ports = app["env"]["HAPROXY_HTTP"].split(",")
 		
-			for i in range(app["ports"]):
+			for i in range(len(app["ports"])):
 				service_port = app["ports"][i]
-				servers = [ t["host"]+":"+t["ports"][i] for t in tasks ]
+				servers = [ t["host"]+":"+str(t["ports"][i]) for t in app["tasks"] ]
 
 				if service_port in http_ports and app_name not in apps: 
 					apps[app_name] = {
@@ -133,6 +133,8 @@ def configApps(masters):
 						"app_name": app_name
 					}
 
+				marathon_app_name = app_name
+				if app_name[0] == '/': app_name = app_name [1:]
 				if app_name in apps:
 					apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name+"-"+service_port, "service_port": service_port, "servers": servers}
 				else:
@@ -142,10 +144,11 @@ def configApps(masters):
 							raise Exception("No open port available")
 					else:
 						port_management.ports.append(service_port)
-					server_config = listenAppFromPort(app_name+"-"+service_port,service_port,servers)
+					server_config = listenAppFromPort(app_name+"-"+str(service_port),service_port,servers)
 					content += server_config
-					backend = socket.gethostbyname(socket.gethostname())+":"+service_port
-					external = urllib2.urlopen('http://whatismyip.org').read()+":"+service_port
+					backend = socket.gethostbyname(socket.gethostname())+":"+str(service_port)
+					external = urllib2.urlopen('http://whatismyip.org').read()+":"+str(service_port)
+					if app_name[0] == '/': app_name = app_name[1:]
 					etcd.set(os.path.join(backends_directory,app_name),backend)
 					etcd.set(os.path.join(externals_directory,app_name),external)
 
@@ -178,16 +181,13 @@ def listenAppFromUrl(apps):
 		etcd.set(os.path.join(backends_directory,app_name),app["url"])
 		etcd.set(os.path.join(externals_directory,app_name),app["url"])
 	
-	apps = frontends.replace("$acls","".join(acls)).replace("$use_backends","".join(use_backends)).split("\n")
+	apps = frontends.replace("$acls","\n".join(acls)).replace("$use_backends","\n".join(use_backends)).split("\n")
 	apps = apps + backends
 	return apps
 
 # Creates configuration for an app using a port to reach
 def listenAppFromPort(app_name,service_port,servers):
-	server_config = etcd.get(config_port_template)["node"]["value"]
-				.replace("$app_name",app_name)
-				.replace("$service_port",service_port)
-				.split("\n")
+	server_config = etcd.get(config_port_template)["node"]["value"].replace("$app_name",app_name).replace("$service_port",str(service_port)).split("\n")
 
 	for i in range(len(servers)):
 		server = servers[i]
