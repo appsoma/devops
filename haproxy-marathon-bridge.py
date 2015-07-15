@@ -132,14 +132,14 @@ def configApps(masters):
 				service_port = app["ports"][i]
 				servers = [ t["host"]+":"+str(t["ports"][i]) for t in app["tasks"] ]
 
+				marathon_app_name = app_name
+				if app_name[0] == '/': app_name = app_name [1:]
 				if service_port in http_ports and app_name not in apps: 
 					apps[app_name] = {
-						"url": "/"+os.path.join(prefix,service_name),
+						"url": "/"+os.path.join(prefix,app_name),
 						"app_name": app_name
 					}
 
-				marathon_app_name = app_name
-				if app_name[0] == '/': app_name = app_name [1:]
 				if app_name in apps:
 					apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name+"-"+service_port, "service_port": service_port, "servers": servers}
 				else:
