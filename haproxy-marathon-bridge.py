@@ -52,6 +52,7 @@ config_port_template = name+"/haproxy_port.cfg"
 config_frontends_template = name+"/haproxy_frontends.cfg"
 config_backend_template = name+"/haproxy_backend.cfg"
 extra_services_directory = name+"/services"
+path_prefix = name+"/path_prefix"
 cronjob_conf_file = name+"/marathons"
 backends_directory = "internals"
 externals_directory = "externals"
@@ -107,6 +108,10 @@ def configApps(masters):
 
 	apps = {}
 	apps_data = etcd.get(extra_services_directory)
+	try:
+		prefix = etcd.get(path_prefix)["node"]["value"]
+	except:
+		prefix = ""
 	for i in apps_data["node"]["nodes"]:
 		s = json.loads(i["value"])
 		apps[s["app_name"]] = s
@@ -129,7 +134,7 @@ def configApps(masters):
 
 				if service_port in http_ports and app_name not in apps: 
 					apps[app_name] = {
-						"url": "/"+service_name,
+						"url": "/"+os.path.join(prefix,service_name),
 						"app_name": app_name
 					}
 
