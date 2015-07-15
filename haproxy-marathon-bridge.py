@@ -113,31 +113,41 @@ def configApps(masters):
 
 	content = []
 	for master in masters:
-		req = urllib2.Request("http://"+master+"/v2/tasks", None, { "Accept": "text/plain" })
+		req = urllib2.Request("http://"+master+"/v2/apps")
 		response = urllib2.urlopen(req)
-		lines = response.read().split("\n")
-		for line in lines:
-			if line.strip() == "": continue
-			parts = line.split("\t")
-			app_name = parts[0]
-			service_port = parts[1]
-			servers = parts[2:]
-			
-			if app_name in apps:
-				apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name, "service_port": service_port, "servers": servers}
-			else:
-				if port_management.check_port(service_port):
-					service_port = port_management.new_port()
-					if not service_port:
-						raise Exception("No open port available")
+		marathon_apps = json.loads(response.read())["apps"]
+		for app in marathon_apps:
+			app_name = app["id"]
+
+			http_ports = []
+			if "HAPROXY_HTTP" in app["env"]:
+				http_ports = app["env"]["HAPROXY_HTTP"].split(",")
+		
+			for i in range(app["ports"]):
+				service_port = app["ports"][i]
+				servers = [ t["host"]+":"+t["ports"][i] for t in tasks ]
+
+				if service_port in http_ports and app_name not in apps: 
+					apps[app_name] = {
+						"url": "/"+service_name,
+						"app_name": app_name
+					}
+
+				if app_name in apps:
+					apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name+"-"+service_port, "service_port": service_port, "servers": servers}
 				else:
-					port_management.ports.append(service_port)
-				server_config = listenAppFromPort(app_name,service_port,servers)
-				content += server_config
-				backend = socket.gethostbyname(socket.gethostname())+":"+service_port
-				external = urllib2.urlopen('http://whatismyip.org').read()+":"+service_port
-				etcd.set(os.path.join(backends_directory,app_name),backend)
-				etcd.set(os.path.join(externals_directory,app_name),external)
+					if port_management.check_port(service_port):
+						service_port = port_management.new_port()
+						if not service_port:
+							raise Exception("No open port available")
+					else:
+						port_management.ports.append(service_port)
+					server_config = listenAppFromPort(app_name+"-"+service_port,service_port,servers)
+					content += server_config
+					backend = socket.gethostbyname(socket.gethostname())+":"+service_port
+					external = urllib2.urlopen('http://whatismyip.org').read()+":"+service_port
+					etcd.set(os.path.join(backends_directory,app_name),backend)
+					etcd.set(os.path.join(externals_directory,app_name),external)
 
 	if len(apps) > 0: content += listenAppFromUrl(apps)
 	return content
