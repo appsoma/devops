@@ -182,7 +182,12 @@ def listenAppFromUrl(apps):
 			server = app["servers"][s]
 			if server.strip() == "": continue
 			servers.append("   server "+app_name+"-host"+str(s)+" "+server)
-		backends += backend_template.replace("$app_name",app_name).replace("$servers","\n".join(servers)).split("\n")
+		tmp_backend = backend_template.replace("$app_name",app_name).replace("$servers","\n".join(servers))
+                if (app["url"][0] == "/"):
+                        tmp_backend = tmp_backend.replace("$replace_req", "reqrep ^([^\ :]*)\ "+ app["url"] + " (.*) \\1\ /\\2")
+                else:
+                        tmp_backend = tmp_backend.replace("$replace_req", "")
+                backends += tmp_backend.split("\n")
 		etcd.set(os.path.join(backends_directory,app_name),app["url"])
 		etcd.set(os.path.join(externals_directory,app_name),app["url"])
 	
