@@ -136,12 +136,13 @@ def configApps(masters):
 				if app_name[0] == '/': app_name = app_name [1:]
 				if service_port in http_ports and app_name not in apps: 
 					apps[app_name] = {
+						"strip_path": False,
 						"url": "/"+os.path.join(prefix,app_name),
 						"app_name": app_name
 					}
 
 				if app_name in apps:
-					apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name+"-"+service_port, "service_port": service_port, "servers": servers}
+					apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name+"-"+service_port, "service_port": service_port, "servers": servers, "strip_path": apps[app_name]["strip_path"] if "strip_path" in apps[app_name] else True }
 				else:
 					if port_management.check_port(service_port):
 						service_port = port_management.new_port()
@@ -183,7 +184,7 @@ def listenAppFromUrl(apps):
 			if server.strip() == "": continue
 			servers.append("   server "+app_name+"-host"+str(s)+" "+server)
 		tmp_backend = backend_template.replace("$app_name",app_name).replace("$servers","\n".join(servers))
-                if (app["url"][0] == "/"):
+                if (app["url"][0] == "/") and app["strip_path"]:
                         tmp_backend = tmp_backend.replace("$replace_req", "reqrep ^([^\ :]*)\ "+ app["url"] + "/(.*) \\1\ /\\2")
                 else:
                         tmp_backend = tmp_backend.replace("$replace_req", "")
