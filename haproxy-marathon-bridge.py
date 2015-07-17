@@ -52,6 +52,7 @@ config_port_template = name+"/haproxy_port.cfg"
 config_frontends_template = name+"/haproxy_frontends.cfg"
 config_backend_template = name+"/haproxy_backend.cfg"
 extra_services_directory = name+"/services"
+subnet_dns = name+"/subnet_dns"
 path_prefix = name+"/path_prefix"
 cronjob_conf_file = name+"/marathons"
 backends_directory = "internals"
@@ -137,7 +138,7 @@ def configApps(masters):
 				if service_port in http_ports and app_name not in apps: 
 					apps[app_name] = {
 						"strip_path": False,
-						"url": "/"+os.path.join(prefix,app_name),
+						"url": app_name+etcd.get(subnet_dns)["node"]["value"]
 						"app_name": app_name
 					}
 
