@@ -138,7 +138,7 @@ def configApps(masters):
 				if service_port in http_ports and app_name not in apps: 
 					apps[app_name] = {
 						"strip_path": False,
-						"url": app_name+etcd.get(subnet_dns)["node"]["value"]
+						"url": app_name+etcd.get(subnet_dns)["node"]["value"],
 						"app_name": app_name
 					}
 
