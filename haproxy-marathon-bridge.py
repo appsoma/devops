@@ -126,7 +126,7 @@ def configApps(masters):
 
 			http_ports = []
 			if "HAPROXY_HTTP" in app["env"]:
-				http_ports = app["env"]["HAPROXY_HTTP"].split(",")
+				http_ports = map(int,app["env"]["HAPROXY_HTTP"].split(","))
 		
 			for i in range(len(app["ports"])):
 				service_port = app["ports"][i]
@@ -142,7 +142,7 @@ def configApps(masters):
 					}
 
 				if app_name in apps:
-					apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name+"-"+service_port, "service_port": service_port, "servers": servers, "strip_path": apps[app_name]["strip_path"] if "strip_path" in apps[app_name] else True }
+					apps[app_name] = { "url": apps[app_name]["url"], "app_name": app_name+"-"+str(service_port), "service_port": str(service_port), "servers": servers, "strip_path": apps[app_name]["strip_path"] if "strip_path" in apps[app_name] else True }
 				else:
 					if port_management.check_port(service_port):
 						service_port = port_management.new_port()
