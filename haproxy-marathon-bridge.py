@@ -135,7 +135,7 @@ def configApps(masters):
 
 				marathon_app_name = app_name
 				if app_name[0] == '/': app_name = app_name [1:]
-				if service_port in http_ports and app_name not in apps: 
+				if i in http_ports and app_name not in apps: 
 					apps[app_name] = {
 						"strip_path": False,
 						"url": app_name+etcd.get(subnet_dns)["node"]["value"],
