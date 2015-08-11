@@ -9,7 +9,11 @@ import urllib2
 import json
 import socket
 import random
-from abc import ABCMeta
+import argparse
+from abc import ABCMeta,abstractmethod
+
+script = sys.argv[0].split("/")[-1]
+name = ".".join(script.split(".")[:-1])
 
 """
 Port Management
@@ -50,9 +54,9 @@ class KeyManager:
 	backends_directory = "internals"
 	externals_directory = "externals"
 
-	@abstractclass
+	@abstractmethod
 	def get(self,key): pass
-	@abstractclass
+	@abstractmethod
 	def set(self,key,data): pass
 
 class Etcd(KeyManager):
@@ -90,7 +94,7 @@ class Haproxy:
 				pids = f.read().replace("\n"," ")
 		except IOError as e:
 			# ACB: File may not exist
-			if(e.errno != 2) raise e
+			if(e.errno != 2): raise e
 
 		pids_string = (" -sf "+pids) if pids else ""
 
@@ -124,7 +128,7 @@ class Cron:
 		try:
 			os.mkdir(Cron.cronjob_dir)
 		except OSError as e: 
-			if(e.errno!=17) raise e
+			if(e.errno!=17): raise e
 
 		with open(Cron.cronjob_dir+cron_file,"w") as f:
 			f.write(content)
@@ -142,7 +146,7 @@ class Bridge:
 		masters = self._kv.get(KeyManager.cronjob_conf_file).split("\n")
 
 		apps = {}
-		apps_data = self._kv.get(extra_services_directory)
+		apps_data = self._kv.get(KeyManager.extra_services_directory)
 		try:
 			prefix = self._kv.get(path_prefix)
 		except:
@@ -152,8 +156,8 @@ class Bridge:
 			apps[s["app_name"]] = s
 
 		http_apps = apps
-		tcp_apps = []
-		content = []
+		tcp_apps = {}
+		content = self.getConfigHeader().split("\n")
 		for master in masters:
 			req = urllib2.Request("http://"+master+"/v2/apps?embed=apps.tasks")
 			response = urllib2.urlopen(req)
@@ -196,7 +200,7 @@ class Bridge:
 		content = []
 		
 		for app_name,app in apps.items():
-			server_config = self_kv.get(config_port_template).replace("$app_name",app["app_name"]).replace("$service_port",app["service_port"])).split("\n")
+			server_config = self_kv.get(config_port_template).replace("$app_name",app["app_name"]).replace("$service_port",app["service_port"]).split("\n")
 			for i in range(len(servers)):
 				server = servers[i]
 				if server.strip() == "": continue
@@ -204,7 +208,7 @@ class Bridge:
 			
 			backend = socket.gethostbyname(socket.gethostname())+":"+app["service_port"]
 			external = urllib2.urlopen('http://whatismyip.org').read()+":"+app["service_port"]
-			self._saveEndpoints(app_name,backend,external
+			self._saveEndpoints(app_name,backend,external)
 			content += server_config
 
 		return content
@@ -261,9 +265,9 @@ class CommandManager:
 	def install(cls,kv,script_dir,script):
 		script_path = script_dir + script
 		try:
-			os.makedirs(cls.script_dir)
+			os.makedirs(script_dir)
 		except OSError as e: 
-			if(e.errno!=17) raise e
+			if(e.errno!=17): raise e
 		shutil.copyfile(script,script_path)
 		os.chmod(script_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
@@ -278,7 +282,7 @@ class CommandManager:
 
 		if new_content == old_content: return
 
-		Haproxy.writeCong(new_content)
+		Haproxy.writeConfig(new_content)
 		Haproxy.restart()
 
 	@classmethod
@@ -286,8 +290,6 @@ class CommandManager:
 		return "* * * * * root python "+script_path+" updateConfig >>/tmp/haproxycron.log 2>&1\n"
 
 if __name__ == "__main__":
-	script = sys.argv[0].split("/")[-1]
-	name = ".".join(script.split(".")[:-1])
 	script_dir = "/usr/local/bin/"+name+"-dir/"
 
 	parser = argparse.ArgumentParser(description='Bridge between marathon and haproxy')
