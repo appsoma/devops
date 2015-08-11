@@ -11,6 +11,7 @@ import socket
 import random
 import argparse
 from abc import ABCMeta,abstractmethod
+from kazoo.client import KazooClient
 
 script = sys.argv[0].split("/")[-1]
 name = ".".join(script.split(".")[:-1])
@@ -75,9 +76,13 @@ class Etcd(KeyManager):
 		return json.load(response)
 
 class Zookeeper(KeyManager):
-	def __init__(self): pass
-	def get(self,key): pass
-	def set(self,key,data): pass
+	def __init__(self,hosts): 
+		self._hosts = hosts
+		self.zk = KazooClient(hosts=hosts)
+	def get(self,key):
+		return self.zk.get(key)[0] 
+	def set(self,key,data):
+		self.zk.set(key, data)
 
 """
 HAPROXY management
