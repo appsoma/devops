@@ -307,7 +307,7 @@ if __name__ == "__main__":
 		script_dir = args.installation_folder
 
 	if args.zookeeper:
-		kv = Zookeeper()
+		kv = Zookeeper(args.zookeeper)
 	else:
 		kv = Etcd()
 
