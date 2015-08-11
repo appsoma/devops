@@ -287,7 +287,7 @@ class CommandManager:
 
 	@classmethod
 	def _cronContent(cls,script_path):
-		return "* * * * * root python "+script_path+" updateConfig >>/tmp/haproxycron.log 2>&1\n"
+		return "* * * * * root python "+script_path+" update >>/tmp/haproxycron.log 2>&1\n"
 
 if __name__ == "__main__":
 	script_dir = "/usr/local/bin/"+name+"-dir/"
